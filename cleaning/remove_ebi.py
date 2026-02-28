@@ -255,11 +255,14 @@ async def main():
 
             async def _process_and_write(rec):
                 result = await process_record(client, rec, args, sem)
-                f.write(json.dumps(result) + "\n")
-                f.flush()
                 stats["processed"] += 1
                 if result["fully_hallucinated"]:
                     stats["fully_hallucinated"] += 1
+                    pbar.update(1)
+                    return result
+                del result["fully_hallucinated"]
+                f.write(json.dumps(result) + "\n")
+                f.flush()
                 if result["flag"]:
                     stats["flagged"][result["flag"]] = stats["flagged"].get(result["flag"], 0) + 1
                     if result["flag"] == "api_failure":

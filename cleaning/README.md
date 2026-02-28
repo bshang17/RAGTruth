@@ -8,8 +8,8 @@ Only records that had at least one EBI-labeled span are included. Other hallucin
 
 | File | Records | Description |
 |------|---------|-------------|
-| `output/train_cleaned.jsonl` | 3,851 | Training split |
-| `output/test_cleaned.jsonl` | 542 | Test split |
+| `output/train_cleaned.jsonl` | 3,838 | Training split |
+| `output/test_cleaned.jsonl` | 541 | Test split |
 
 ## Field Schema
 
@@ -28,7 +28,6 @@ Each line is a JSON object with these fields:
 | `edit_distance` | int | Levenshtein distance between `naive_removed` and `cleaned_response` |
 | `edit_ratio` | float | `edit_distance / len(naive_removed)` — fraction of text changed by GPT |
 | `flag` | string or null | Quality flag (see below), `null` when clean |
-| `fully_hallucinated` | bool | `true` if the entire response was EBI (cleaned text is empty) |
 
 ## Flags
 
@@ -41,7 +40,7 @@ GPT is instructed to make only minimal grammar fixes, but sometimes it goes furt
 | `content_added` | 185 (4.2%) | GPT added >20 characters beyond the naive removal (may have introduced new content) |
 | `excessive_edit` | 54 (1.2%) | Edit ratio exceeded the 10% threshold — GPT rewrote too much |
 
-Additionally, 14 records (0.3%) have `fully_hallucinated=true` — the entire response was EBI, so `cleaned_response` is empty. These are not flagged since no GPT call was made.
+Records where the entire response was EBI (fully hallucinated) are excluded from the output — they would have empty `cleaned_response` and provide no usable text. This accounts for 14 records dropped from the original pipeline output.
 
 ### Recommended handling
 
@@ -49,7 +48,6 @@ Additionally, 14 records (0.3%) have `fully_hallucinated=true` — the entire re
 - **`distant_edit`**: Usually safe. GPT may have cleaned up a preamble or trailing phrase. Inspect if precision matters.
 - **`content_added`**: Review manually — GPT may have inserted filler phrases that constitute new (potentially hallucinated) content.
 - **`excessive_edit`**: Consider falling back to `naive_removed` or reviewing the diff.
-- **`fully_hallucinated`**: Exclude from downstream use, or use as negative examples.
 
 ## Examples
 
@@ -66,8 +64,7 @@ A single EBI span ("and the fire has been extinguished") was removed mid-sentenc
   "cleaned_response": "...while welding work was being done, but without any injuries.",
   "edit_distance": 3,
   "edit_ratio": 0.0168,
-  "flag": null,
-  "fully_hallucinated": false
+  "flag": null
 }
 ```
 
@@ -84,25 +81,7 @@ One EBI sentence was removed, but GPT also stripped the "Here's the summary with
   "cleaned_response": "On the latest episode of Big Brother 25...",
   "edit_distance": 39,
   "edit_ratio": 0.1137,
-  "flag": "excessive_edit",
-  "fully_hallucinated": false
-}
-```
-
-### Fully hallucinated record (id=16420)
-
-The entire response was a single EBI span. After removal, `cleaned_response` is empty.
-
-```json
-{
-  "id": "16420",
-  "original_response": "Based on the given passages, here are the steps to draw a truncated cone in GeoGebra:\n\n1. Draw a circle with a diameter of 2 inches...",
-  "ebi_spans": [{"start": 0, "end": 966, "text": "Based on the given passages, here are the steps..."}],
-  "cleaned_response": "",
-  "edit_distance": 0,
-  "edit_ratio": 0.0,
-  "flag": null,
-  "fully_hallucinated": true
+  "flag": "excessive_edit"
 }
 ```
 
